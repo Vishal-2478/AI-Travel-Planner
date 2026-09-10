@@ -33,7 +33,7 @@ Personalized Itinerary
 ## 🚀 Run Locally
 
 ```bash
-git clone https://github.com/<your-username>/QuietMiles.git
+git clone https://github.com/vishal-2478/QuietMiles.git
 cd QuietMiles
 pip install -r requirements.txt
 streamlit run app.py
