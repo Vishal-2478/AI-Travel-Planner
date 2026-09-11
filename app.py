@@ -3,7 +3,7 @@ from openai import OpenAI
 import os
 from dotenv import load_dotenv
 from serpapi import GoogleSearch
-from datetime import datetime
+from datetime import datetime, date, timedelta
 
 # Load keys
 # load_dotenv()
@@ -18,6 +18,11 @@ st.title("🌍 AI Travel Planner")
 
 destination = st.text_input("Enter destination")
 days = st.slider("Number of days", 1, 10, 3)
+travel_date = st.date_input(
+    "Departure date",
+    value=date.today() + timedelta(days=14),
+    min_value=date.today(),
+)
 source = st.text_input("From (IATA code)", "BOM")
 destination_code = st.text_input("To (IATA code)", "DEL")
 budget = st.selectbox("Budget", ["Low", "Medium", "High"])
@@ -63,23 +68,30 @@ def format_layovers(layovers):
 # ---------- SERPAPI ----------
 
 
-def get_flights(source, destination):
+def get_flights(source, destination, outbound_date, return_date):
     params = {
         "engine": "google_flights",
         "departure_id": source,
         "arrival_id": destination,
-        "outbound_date": "2026-05-10",
-        "return_date": "2026-05-15",
+        "outbound_date": outbound_date.strftime("%Y-%m-%d"),
+        "return_date": return_date.strftime("%Y-%m-%d"),
         "currency": "INR",
         "hl": "en",
         "gl": "in",
         "api_key": SERPAPI_KEY,
     }
 
-    search = GoogleSearch(params)
-    results = search.get_dict()
+    # If the flight API fails, return no flights instead of crashing,
+    # so the itinerary is still generated.
+    try:
+        results = GoogleSearch(params).get_dict()
+    except Exception as e:
+        st.warning(f"Flight search unavailable right now ({e}). Showing itinerary only.")
+        return []
 
-    print("FULL RESPONSE:", results)
+    if "error" in results:
+        st.warning(f"Flight search returned an error: {results['error']}")
+        return []
 
     return results.get("best_flights", [])
 
@@ -117,7 +129,8 @@ def planner_agent(destination, days, budget, research):
 if st.button("Generate Plan"):
 
     st.write("✈️ Fetching flights...")
-    flights = get_flights(source, destination_code)
+    return_date = travel_date + timedelta(days=days)
+    flights = get_flights(source, destination_code, travel_date, return_date)
 
     st.write("🔍 Researching...")
     research = research_agent(destination, interests)
